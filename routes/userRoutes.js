@@ -1,4 +1,3 @@
-
 /**
  * @swagger
  * tags:
@@ -9,6 +8,8 @@ const express = require('express');
 const router = express.Router();
 
 const userController = require('../controllers/userController');
+
+const { csrfProtection } = require('../middlewares/csrf'); 
 
 /**
  * @swagger
@@ -53,7 +54,8 @@ const userController = require('../controllers/userController');
  *       500:
  *         description: Server error
  */
-router.post('/register', userController.register);
+
+router.post('/register', csrfProtection, userController.register);
 
 /**
  * @swagger

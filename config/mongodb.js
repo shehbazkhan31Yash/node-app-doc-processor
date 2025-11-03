@@ -25,12 +25,18 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     const conn = await mongoose.connect(process.env.MONGODB_URI);
+    if (!conn || !conn.connection || !conn.connection.host) {
+      console.error('MongoDB connection established but connection object is missing expected properties.');
+      process.exit(1); 
+    }
+
     console.log(`MongoDB connected: ${conn.connection.host}`);
   } catch (error) {
     console.error(`Error connecting to MongoDB: ${error.message}`);
     process.exit(1);
   }
 };
+
 
 module.exports = connectDB;
 
