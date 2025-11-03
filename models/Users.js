@@ -1,16 +1,35 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+
 /**
- * Mongoose schema defining the shape and validation of User documents.
- * Represents a registered user with authentication credentials.
- * 
+ * User model (Mongoose)
+ *
+ * Purpose:
+ *  - Defines the structure and validation rules for user documents stored in MongoDB.
+ *
+ * Fields:
+ *  - userName (string): Unique username for the user (required)
+ *  - firstName (string): User's first name (required)
+ *  - lastName (string): User's last name (required)
+ *  - email (string): Unique email address (required)
+ *  - password (string): Hashed password (required) — the raw password is hashed before save
+ *
+ * Behavior:
+ *  - A pre-save hook hashes the password using bcrypt when the password field is created or modified.
+ *  - The model enforces uniqueness on userName and email at the Mongoose/schema level, but
+ *    you should also handle duplicate-key errors coming from the database in production.
+ *
+ * Example:
+ *   const user = new User({ userName, firstName, lastName, email, password });
+ *   await user.save(); // password is hashed automatically before saving
+ *
  * @typedef {Object} User
- * @property {string} userName - Unique username for the user (required).
- * @property {string} firstName - User's first name (required).
- * @property {string} lastName - User's last name (required).
- * @property {string} email - Unique email address associated with the user (required).
- * @property {string} password - User's hashed password; stored securely.
+ * @property {string} userName
+ * @property {string} firstName
+ * @property {string} lastName
+ * @property {string} email
+ * @property {string} password - hashed before persistence
  */
 const UserSchema = new mongoose.Schema({
   userName: { type: String, required: true, unique: true },
@@ -24,7 +43,7 @@ const UserSchema = new mongoose.Schema({
  * Pre-save middleware hook to hash the password before saving the User document.
  * This runs on document save only if the password field has been modified.
  * Uses bcrypt to generate a salted hash of the password.
- * 
+ *
  * @function
  * @name preSaveHashPassword
  * @param {Function} next - The callback to continue middleware chain

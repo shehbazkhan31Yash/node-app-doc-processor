@@ -2,24 +2,33 @@ const User = require('../models/Users');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
+
+
 /**
  * Register a new user.
  *
- * This endpoint creates a new user record in the database.
+ * Creates a new user record in the database. Expects the request body to contain:
+ *   - userName (string): unique username for the user (required)
+ *   - firstName (string): user's first name (required)
+ *   - lastName (string): user's last name (required)
+ *   - email (string): user's email, must be unique (required)
+ *   - password (string): plain-text password (required) — this is hashed before saving
  *
- * @param {module:express.Request} req - The Express request object.
- *   @property {string} req.body.userName - The unique username of the user (required).
- *   @property {string} req.body.firstName - The user's first name (required).
- *   @property {string} req.body.lastName - The user's last name (required).
- *   @property {string} req.body.email - The user's unique email address (required).
- *   @property {string} req.body.password - The user's password in plain text (required).
+ * Successful response:
+ *   - 201: { message: 'User registered successfully' }
  *
- * @param {module:express.Response} res - The Express response object.
+ * Possible error responses:
+ *   - 400: { message: 'All fields are required' } when any required field is missing
+ *   - 400: { message: 'User already exists' } when a user with the same email already exists
+ *   - 500: { message: '<error message>' } for unexpected server/database errors
  *
- * @returns {Promise<void>} Sends JSON response with:
- * - `201` and success message if user is created.
- * - `400` if any required fields are missing or user already exists.
- * - `500` if server error occurs.
+ * Notes:
+ *  - The password provided in the request is hashed by the User model before it is saved.
+ *  - The response intentionally does not return the user object or password for security reasons.
+ *
+ * @param {Object} req - Express request object. req.body contains input fields described above.
+ * @param {Object} res - Express response object.
+ * @returns {Promise<void>}
  */
 exports.register = async (req, res) => {
   try {
@@ -51,21 +60,31 @@ exports.register = async (req, res) => {
   }
 };
 
+
+
 /**
  * Login a user.
  *
- * This endpoint authenticates a user and returns a JWT token for authorized requests.
+ * Authenticates a user and returns a JWT token for authorized requests.
+ * Expects the request body to contain:
+ *   - email (string): user's email (required)
+ *   - password (string): plain-text password (required)
  *
- * @param {module:express.Request} req - The Express request object.
- *   @property {string} req.body.email - The user's email address (required).
- *   @property {string} req.body.password - The user's plain text password (required).
+ * Successful response:
+ *   - 200: { token: '<jwt token>', user: <user object> }
  *
- * @param {module:express.Response} res - The Express response object.
+ * Possible error responses:
+ *   - 400: { message: 'User not found' } when no user exists with the provided email
+ *   - 400: { message: 'Invalid credentials' } when password does not match
+ *   - 500: { message: '<error message>' } for unexpected server/database errors
  *
- * @returns {Promise<void>} Sends JSON response with:
- * - `200` along with JWT token and user info if login succeeds.
- * - `400` if user not found or invalid credentials.
- * - `500` if server error occurs.
+ * Notes:
+ *  - The JWT payload contains { userId } and the token expiry is set to 1 day.
+ *  - Keep JWT secret secure and set it via the JWT_SECRET environment variable in production.
+ *
+ * @param {Object} req - Express request object. req.body contains email and password.
+ * @param {Object} res - Express response object.
+ * @returns {Promise<void>}
  */
 exports.login = async (req, res) => {
   try {

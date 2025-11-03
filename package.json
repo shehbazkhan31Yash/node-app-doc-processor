@@ -9,16 +9,16 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-  "docs": "jsdoc -c jsdoc.json"
-
-
+    "docs": "jsdoc -c jsdoc.json"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.19.2"
+    "mongoose": "^8.19.2",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "docdash": "^2.0.2",

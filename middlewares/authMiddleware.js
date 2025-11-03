@@ -4,38 +4,33 @@ const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
 /**
- * Middleware to authenticate requests using JWT tokens.
- * 
- * This middleware checks the `Authorization` header for a Bearer token,
- * verifies the token's validity and expiration using the JWT secret,
- * and attaches the decoded user payload to `req.user` for downstream use.
- * 
- * If the header is missing or invalid, or if the token verification fails,
- * it sends a 401 Unauthorized response with an appropriate error message.
- * 
- * This middleware is used to protect routes that require authenticated access.
- * It should be added before handlers for routes that need user identification.
+ * Authentication middleware using JWT.
  *
- * @param {module:express.Request} req - The Express request object.
- *   @property {Object} [user] - The decoded JWT payload added when token is valid.
- * 
- * @param {module:express.Response} res - The Express response object.
- * 
- * @param {module:express.NextFunction} next - The Express next middleware function.
- *   Called to pass control to the next middleware or route handler if authentication succeeds.
- * 
- * @returns {void}
- * 
- * @example
- * // Usage in an Express route
- * const express = require('express');
- * const router = express.Router();
- * const authMiddleware = require('./middleware/authMiddleware');
- * 
- * router.get('/protected', authMiddleware, (req, res) => {
- *   res.json({ message: 'This is protected data', userId: req.user.userId });
- * });
+ * Behavior:
+ *  - Reads the Authorization header and expects a Bearer token:
+ *      Authorization: Bearer <token>
+ *  - Verifies the token using the JWT secret from process.env.JWT_SECRET.
+ *  - On success: attaches the decoded token payload to req.user and calls next().
+ *  - On failure: responds with 401 Unauthorized and a short error message.
+ *
+ * Example usage in a route:
+ *   const authMiddleware = require('./middleware/authMiddleware');
+ *   router.get('/protected', authMiddleware, (req, res) => {
+ *     // req.user contains decoded JWT payload, e.g. { userId: '...' }
+ *     res.json({ message: 'Protected content', userId: req.user.userId });
+ *   });
+ *
+ * Notes:
+ *  - Ensure JWT_SECRET is set in environment variables for production.
+ *  - Token expiry handling is performed by jwt.verify; expired tokens will trigger 401.
+ *
+ * @param {Object} req - Express request object. On success, req.user will hold decoded token payload.
+ * @param {Object} res - Express response object.
+ * @param {Function} next - Next middleware function to call on successful auth.
+ * @returns {void|Object} May return a response object when unauthorized, otherwise calls next().
  */
+
+
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
