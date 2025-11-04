@@ -29,3 +29,4 @@ function setupSwagger(app, mountPath = '/api-docs') {
 }
 
 module.exports = setupSwagger;
+

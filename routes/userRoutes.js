@@ -9,7 +9,7 @@ const router = express.Router();
 
 const userController = require('../controllers/userController');
 
-const { csrfProtection } = require('../middlewares/csrf'); 
+const { csrfProtection } = require('../middlewares/csrf');
 
 /**
  * @swagger
@@ -17,6 +17,13 @@ const { csrfProtection } = require('../middlewares/csrf');
  *   post:
  *     summary: Registers a new user creating a new user document in the database.
  *     tags: [Users]
+ *     parameters:
+ *       - in: header
+ *         name: x-csrf-token
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: CSRF token header (set by /api/csrf-token). Add it via "Authorize" or requestInterceptor.
  *     requestBody:
  *       required: true
  *       content:
@@ -54,7 +61,6 @@ const { csrfProtection } = require('../middlewares/csrf');
  *       500:
  *         description: Server error
  */
-
 router.post('/register', csrfProtection, userController.register);
 
 /**
