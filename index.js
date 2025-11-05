@@ -4,7 +4,7 @@
 
 const express = require('express');
 require('dotenv').config();
-
+const cors = require('cors'); 
 const cookieParser = require('cookie-parser'); 
 const connectDB = require('./config/mongodb');
 const userRoutes = require('./routes/userRoutes');
@@ -16,6 +16,19 @@ const { errorHandler } = require('./middlewares/errorMiddleware');
 const { csrfProtection } = require('./middlewares/csrf'); 
 
 const app = express();
+const allowedOrigins = [process.env.FRONTEND_URL];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true); 
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 
 app.use(express.json());
 app.use(cookieParser()); 
