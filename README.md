@@ -30,15 +30,12 @@ Simple Express.js API for user registration and login with CSRF protection and S
    PORT=
    MONGO_URI=
    JWT_SECRET=your_jwt_secret
-   NODE_ENV=development
    
    Adjust values as needed.
  
 4. Start the server
    - Development (auto-reload):
      npm run dev
-   - Production:
-     npm start
  
 5. API docs (Swagger)
    - Open http://localhost:5000/api-docs (or change port in `.env`)
@@ -54,7 +51,6 @@ Simple Express.js API for user registration and login with CSRF protection and S
 ## Common commands
 - Install: `npm install`
 - Start dev server: `npm run dev`
-- Start production: `npm start`
 - Generate docs (jsdoc): `npm run docs` (if configured)
  
 ## Project structure (example)
