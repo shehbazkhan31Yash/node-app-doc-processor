@@ -13,7 +13,7 @@ const { errorHandler } = require('./middlewares/errorMiddleware');
 const { csrfProtection } = require('./middlewares/csrf');
 
 // const path = require('path');
-const fs = require('fs');
+// const fs = require('fs');
 
 const app = express();
 const allowedOrigins = [process.env.FRONTEND_URL];

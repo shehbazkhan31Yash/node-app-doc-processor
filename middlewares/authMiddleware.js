@@ -1,7 +1,4 @@
 const jwt = require('jsonwebtoken');
-const mongoose = require("mongoose");
-const bcrypt = require("bcryptjs");
-
 /**
  * Authentication middleware using JWT.
  *
@@ -28,8 +25,6 @@ const bcrypt = require("bcryptjs");
  * @param {Function} next - Next middleware function to call on successful auth.
  * @returns {void|Object} May return a response object when unauthorized, otherwise calls next().
  */
-
-
 const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -41,7 +36,7 @@ const authMiddleware = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded; // Attach user info to request object
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({ message: 'Invalid or expired token' });
   }
 };
