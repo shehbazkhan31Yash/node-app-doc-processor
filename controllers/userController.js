@@ -30,6 +30,7 @@ const jwt = require('jsonwebtoken');
  * @param {Object} res - Express response object.
  * @returns {Promise<void>}
  */
+
 exports.register = async (req, res) => {
   try {
     const { userName, firstName, lastName, email, password } = req.body;
@@ -83,6 +84,7 @@ exports.register = async (req, res) => {
  * @param {Object} res - Express response object.
  * @returns {Promise<void>}
  */
+
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
