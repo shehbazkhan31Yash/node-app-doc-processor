@@ -1,7 +1,5 @@
-const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
-
-
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
 /**
  * User model (Mongoose)
  *
@@ -31,13 +29,23 @@ const bcrypt = require('bcryptjs');
  * @property {string} email
  * @property {string} password - hashed before persistence
  */
-const UserSchema = new mongoose.Schema({
-  userName: { type: String, required: true, unique: true },
-  firstName: { type: String, required: true },
-  lastName: { type: String, required: true },
-  email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-});
+
+const UserSchema = new mongoose.Schema(
+  {
+    userName: { type: String, required: true, unique: true },
+    firstName: { type: String, required: true },
+    lastName: { type: String, required: true },
+    email: { type: String, required: true, unique: true },
+    password: { type: String, required: true, select: false },
+    role: {
+      type: String,
+      enum: ["admin", "manager", "user"],
+      default: "user",
+      required: true,
+    },
+  },
+  { timestamps: true }
+);
 
 /**
  * Pre-save middleware hook to hash the password before saving the User document.
