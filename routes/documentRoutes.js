@@ -4,14 +4,15 @@
  *   name: Documents
  *   description: Create and list documents
  */
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
-const documentController = require('../controllers/documentController');
-const authMiddleware=require('../middlewares/authMiddleware');
-const upload = require('../middlewares/uploadMemory'); 
+const documentController = require("../controllers/documentController");
+const authMiddleware = require("../middlewares/authMiddleware");
+const upload = require("../middlewares/uploadMemory");
+const authorize = require("../middlewares/authorize");
 
-const { csrfProtection } = require('../middlewares/csrf');
+const { csrfProtection } = require("../middlewares/csrf");
 
 /**
  * @swagger
@@ -45,12 +46,44 @@ const { csrfProtection } = require('../middlewares/csrf');
  *       500:
  *         description: Server error
  */
-router.get('/search',authMiddleware, documentController.searchDocuments);
-router.get('/all',authMiddleware, documentController.getAllDocuments);
-router.get('/:id',authMiddleware,documentController.getDocumentAttachments);
-router.get('/:id/:attachmentId',authMiddleware, documentController.viewAttachment);
-router.delete('/:id',csrfProtection,authMiddleware,documentController.deleteDocument);
-
+router.get(
+  "/search",
+  authMiddleware,
+  authorize("manager", "admin", "user"),
+  documentController.searchDocuments
+);
+router.get(
+  "/all",
+  authMiddleware,
+  authorize("manager", "admin", "user"),
+  documentController.getAllDocuments
+);
+router.get(
+  "/:id",
+  authMiddleware,
+  authorize("manager", "admin", "user"),
+  documentController.getDocumentAttachments
+);
+router.get(
+  "/:id/:attachmentId",
+  authMiddleware,
+  authorize("manager", "admin", "user"),
+  documentController.viewAttachment
+);
+router.delete(
+  "/:id",
+  csrfProtection,
+  authMiddleware,
+  authorize("manager", "admin"),
+  documentController.deleteDocument
+);
+router.delete(
+  "/:id/:attachmentId",
+  csrfProtection,
+  authMiddleware,
+  authorize("manager", "admin"),
+  documentController.deleteAttachment
+);
 /**
  * @swagger
  * /api/documents:
@@ -88,6 +121,13 @@ router.delete('/:id',csrfProtection,authMiddleware,documentController.deleteDocu
  *       500:
  *         description: Server error
  */
-router.post('/',csrfProtection,authMiddleware, upload.array('attachments', 5), documentController.createDocument);
+router.post(
+  "/",
+  csrfProtection,
+  authMiddleware,
+  authorize("manager", "admin"),
+  upload.array("attachments", 5),
+  documentController.createDocument
+);
 
 module.exports = router;

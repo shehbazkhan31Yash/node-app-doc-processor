@@ -1,9 +1,7 @@
-const User = require('../models/Users');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-
-
-
+const User = require("../models/Users");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+require("dotenv").config();
 /**
  * Register a new user.
  *
@@ -33,13 +31,31 @@ const jwt = require('jsonwebtoken');
 
 exports.register = async (req, res) => {
   try {
-    const { userName, firstName, lastName, email, password } = req.body;
+    const { userName, firstName, lastName, email, password, role } = req.body;
+
+    // required fields
     if (!userName || !firstName || !lastName || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
     }
-    const existingUser = await User.findOne({ email });
+
+    // restrict client-selectable roles
+    const allowedClientRoles = ["user", "manager"];
+
+    let assignedRole = "user";
+    if (role) {
+      if (!allowedClientRoles.includes(role)) {
+        // block 'admin' or any other invalid role from being self-assigned
+        return res
+          .status(403)
+          .json({ message: "Cannot assign this role during registration" });
+      }
+      assignedRole = role;
+    }
+
+    // ensure email/username uniqueness
+    const existingUser = await User.findOne({ $or: [{ email }, { userName }] });
     if (existingUser) {
-      return res.status(400).json({ message: 'User already exists' });
+      return res.status(400).json({ message: "User already exists" });
     }
 
     const user = new User({
@@ -48,18 +64,25 @@ exports.register = async (req, res) => {
       lastName,
       email,
       password,
+      role: assignedRole,
     });
 
     await user.save();
 
-    res.status(201).json({ message: 'User registered successfully' });
+    // return minimal user info (no password)
+    res.status(201).json({
+      message: "User registered successfully",
+      user: {
+        id: user._id,
+        userName: user.userName,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
-
-
-
 /**
  * Login a user.
  *
@@ -84,24 +107,25 @@ exports.register = async (req, res) => {
  * @param {Object} res - Express response object.
  * @returns {Promise<void>}
  */
-
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    // explicitly include password field
+    const user = await User.findOne({ email }).select("+password");
     if (!user) {
-      return res.status(400).json({ message: 'User not found' });
+      return res.status(400).json({ message: "User not found" });
     }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid credentials' });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '1d' }
-    );
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
+
     res.json({ token, user });
   } catch (err) {
     res.status(500).json({ message: err.message });
