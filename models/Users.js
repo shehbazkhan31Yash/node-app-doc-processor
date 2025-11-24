@@ -29,13 +29,12 @@ const bcrypt = require("bcryptjs");
  * @property {string} email
  * @property {string} password - hashed before persistence
  */
-
 const UserSchema = new mongoose.Schema(
   {
-    userName: { type: String, required: true, unique: true },
+    userName: { type: String, required: true, unique: true, index: true },
     firstName: { type: String, required: true },
     lastName: { type: String, required: true },
-    email: { type: String, required: true, unique: true },
+    email: { type: String, required: true, unique: true, index: true },
     password: { type: String, required: true, select: false },
     role: {
       type: String,
@@ -67,5 +66,11 @@ UserSchema.pre("save", async function (next) {
     next(err);
   }
 });
+
+/**
+ * Indexes
+ */
+UserSchema.index({ role: 1 });
+UserSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("User", UserSchema);

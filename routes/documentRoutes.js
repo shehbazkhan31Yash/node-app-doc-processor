@@ -6,13 +6,12 @@
  */
 const express = require("express");
 const router = express.Router();
-
 const documentController = require("../controllers/documentController");
 const authMiddleware = require("../middlewares/authMiddleware");
 const upload = require("../middlewares/uploadMemory");
 const authorize = require("../middlewares/authorize");
-
 const { csrfProtection } = require("../middlewares/csrf");
+// const pagination = require("../middlewares/pagination");
 
 /**
  * @swagger
@@ -57,6 +56,12 @@ router.get(
   authMiddleware,
   authorize("manager", "admin", "user"),
   documentController.getAllDocuments
+);
+router.get(
+  "/project/:projectId",
+  authMiddleware,
+  authorize("manager", "admin", "user"),
+  documentController.getDocumentByProjectID
 );
 router.get(
   "/:id",

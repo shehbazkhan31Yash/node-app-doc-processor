@@ -4,12 +4,12 @@
  *   name: Users
  *   description: User authentication and registration
  */
-const express = require('express');
+const express = require("express");
 const router = express.Router();
-
-const userController = require('../controllers/userController');
-
-const { csrfProtection } = require('../middlewares/csrf');
+const userController = require("../controllers/userController");
+const { csrfProtection } = require("../middlewares/csrf");
+const authMiddleware = require("../middlewares/authMiddleware");
+const authorize = require("../middlewares/authorize");
 
 /**
  * @swagger
@@ -61,7 +61,7 @@ const { csrfProtection } = require('../middlewares/csrf');
  *       500:
  *         description: Server error
  */
-router.post('/register', csrfProtection, userController.register);
+router.post("/register", csrfProtection, userController.register);
 
 /**
  * @swagger
@@ -94,6 +94,48 @@ router.post('/register', csrfProtection, userController.register);
  *       500:
  *         description: Server error
  */
-router.post('/login', userController.login);
+router.post("/login", userController.login);
+
+router.get(
+  "/managers",
+  authMiddleware,
+  authorize("admin"),
+  userController.getAllManagers
+);
+
+// GET /api/users -> returns array of user usernames
+router.get(
+  "/",
+  authMiddleware,
+  authorize("admin", "manager"),
+  userController.getAllEmployees
+);
+router.get(
+  "/all",
+  authMiddleware,
+  authorize("admin"),
+  userController.getAllUsers
+);
+router.get(
+  "/:id",
+  authMiddleware,
+  authorize("admin", "user"),
+  userController.getUserById
+);
+
+router.delete(
+  "/:id",
+  csrfProtection,
+  authMiddleware,
+  authorize("admin"),
+  userController.deleteUser
+);
+router.patch(
+  "/:id",
+  csrfProtection,
+  authMiddleware,
+  authorize("admin", "manager", "user"),
+  userController.UpdateUserDetails
+);
 
 module.exports = router;
