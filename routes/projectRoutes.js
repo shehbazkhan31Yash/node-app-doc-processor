@@ -3,6 +3,7 @@ const { body, param, validationResult } = require("express-validator");
 const { csrfProtection } = require("../middlewares/csrf");
 const authMiddleware = require("../middlewares/authMiddleware");
 const authorize = require("../middlewares/authorize");
+const { adminLimiter } = require("../middlewares/rateLimiter");
 const projectController = require("../controllers/projectController");
 const router = express.Router();
 
@@ -43,6 +44,7 @@ router.post(
   csrfProtection,
   authMiddleware,
   authorize("admin"),
+  adminLimiter,
   projectValidationRules,
   validateProject,
   projectController.createProject
@@ -62,23 +64,34 @@ router.delete(
   "/:id",
   authMiddleware,
   authorize("admin"),
+  adminLimiter,
   validateIdParam,
   projectController.deleteProject
 );
+
 router.post(
   "/:id",
   csrfProtection,
   authMiddleware,
   authorize("admin"),
+  adminLimiter,
   projectController.assignUserToProject
 );
+
 router.get(
   "/all",
   authMiddleware,
   authorize("admin"),
+  adminLimiter,
   projectController.getAllProjects
 );
-router.post("/:projectId/assign-user", projectController.assignUserToProject);
+router.post(
+  "/:projectId/assign-user",
+  authMiddleware,
+  authorize("admin"),
+  adminLimiter,
+  projectController.assignUserToProject
+);
 
 const validateUpdate = [
   param("id").isMongoId().withMessage("Invalid project id"),
@@ -107,6 +120,7 @@ router.patch(
   csrfProtection,
   authMiddleware,
   authorize("admin"),
+  adminLimiter,
   validateUpdate,
   projectController.updateProject
 );

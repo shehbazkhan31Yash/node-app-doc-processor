@@ -10,6 +10,12 @@ const userController = require("../controllers/userController");
 const { csrfProtection } = require("../middlewares/csrf");
 const authMiddleware = require("../middlewares/authMiddleware");
 const authorize = require("../middlewares/authorize");
+const {
+  authLimiter,
+  registerLimiter,
+  publicApiLimiter,
+  adminLimiter,
+} = require("../middlewares/rateLimiter");
 
 /**
  * @swagger
@@ -61,7 +67,12 @@ const authorize = require("../middlewares/authorize");
  *       500:
  *         description: Server error
  */
-router.post("/register", csrfProtection, userController.register);
+router.post(
+  "/register",
+  csrfProtection,
+  registerLimiter,
+  userController.register
+);
 
 /**
  * @swagger
@@ -94,12 +105,13 @@ router.post("/register", csrfProtection, userController.register);
  *       500:
  *         description: Server error
  */
-router.post("/login", userController.login);
+router.post("/login", authLimiter, userController.login);
 
 router.get(
   "/managers",
   authMiddleware,
   authorize("admin"),
+  publicApiLimiter,
   userController.getAllManagers
 );
 
@@ -108,18 +120,21 @@ router.get(
   "/",
   authMiddleware,
   authorize("admin", "manager"),
+  publicApiLimiter,
   userController.getAllEmployees
 );
 router.get(
   "/all",
   authMiddleware,
   authorize("admin"),
+  publicApiLimiter,
   userController.getAllUsers
 );
 router.get(
   "/:id",
   authMiddleware,
   authorize("admin", "user"),
+  publicApiLimiter,
   userController.getUserById
 );
 
@@ -128,6 +143,7 @@ router.delete(
   csrfProtection,
   authMiddleware,
   authorize("admin"),
+  adminLimiter,
   userController.deleteUser
 );
 router.patch(
@@ -135,6 +151,7 @@ router.patch(
   csrfProtection,
   authMiddleware,
   authorize("admin", "manager", "user"),
+  adminLimiter,
   userController.UpdateUserDetails
 );
 
