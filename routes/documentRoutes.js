@@ -6,13 +6,16 @@
  */
 const express = require("express");
 const router = express.Router();
-
 const documentController = require("../controllers/documentController");
 const authMiddleware = require("../middlewares/authMiddleware");
 const upload = require("../middlewares/uploadMemory");
 const authorize = require("../middlewares/authorize");
-
 const { csrfProtection } = require("../middlewares/csrf");
+const {
+  publicApiLimiter,
+  adminLimiter,
+} = require("../middlewares/rateLimiter");
+// const pagination = require("../middlewares/pagination");
 
 /**
  * @swagger
@@ -50,24 +53,39 @@ router.get(
   "/search",
   authMiddleware,
   authorize("manager", "admin", "user"),
+  publicApiLimiter,
   documentController.searchDocuments
 );
+
 router.get(
   "/all",
   authMiddleware,
   authorize("manager", "admin", "user"),
+  publicApiLimiter,
   documentController.getAllDocuments
 );
+
+router.get(
+  "/project/:projectId",
+  authMiddleware,
+  authorize("manager", "admin", "user"),
+  publicApiLimiter,
+  documentController.getDocumentByProjectID
+);
+
 router.get(
   "/:id",
   authMiddleware,
   authorize("manager", "admin", "user"),
+  publicApiLimiter,
   documentController.getDocumentAttachments
 );
+
 router.get(
   "/:id/:attachmentId",
   authMiddleware,
   authorize("manager", "admin", "user"),
+  publicApiLimiter,
   documentController.viewAttachment
 );
 router.delete(
@@ -75,13 +93,16 @@ router.delete(
   csrfProtection,
   authMiddleware,
   authorize("manager", "admin"),
+  adminLimiter,
   documentController.deleteDocument
 );
+
 router.delete(
   "/:id/:attachmentId",
   csrfProtection,
   authMiddleware,
   authorize("manager", "admin"),
+  adminLimiter,
   documentController.deleteAttachment
 );
 /**
@@ -126,6 +147,7 @@ router.post(
   csrfProtection,
   authMiddleware,
   authorize("manager", "admin"),
+  adminLimiter,
   upload.array("attachments", 5),
   documentController.createDocument
 );
