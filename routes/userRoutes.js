@@ -17,6 +17,9 @@ const {
   adminLimiter,
 } = require("../middlewares/rateLimiter");
 
+const validate = require("../middlewares/validation");
+const userValidators = require("../validators/userValidators");
+
 /**
  * @swagger
  * /api/users/register:
@@ -71,6 +74,7 @@ router.post(
   "/register",
   csrfProtection,
   registerLimiter,
+  validate(userValidators.register),
   userController.register
 );
 
@@ -105,36 +109,48 @@ router.post(
  *       500:
  *         description: Server error
  */
-router.post("/login", authLimiter, userController.login);
+router.post(
+  "/login",
+  authLimiter,
+  validate(userValidators.login),
+  userController.login
+);
 
+// get lists (with pagination)
 router.get(
   "/managers",
   authMiddleware,
   authorize("admin"),
   publicApiLimiter,
+  validate(userValidators.pagination),
   userController.getAllManagers
 );
 
-// GET /api/users -> returns array of user usernames
 router.get(
   "/",
   authMiddleware,
   authorize("admin", "manager"),
   publicApiLimiter,
+  validate(userValidators.pagination),
   userController.getAllEmployees
 );
+
 router.get(
   "/all",
   authMiddleware,
   authorize("admin"),
   publicApiLimiter,
+  validate(userValidators.pagination),
   userController.getAllUsers
 );
+
+// get / delete / patch by id
 router.get(
   "/:id",
   authMiddleware,
   authorize("admin", "user"),
   publicApiLimiter,
+  validate(userValidators.getUserById),
   userController.getUserById
 );
 
@@ -144,14 +160,17 @@ router.delete(
   authMiddleware,
   authorize("admin"),
   adminLimiter,
+  validate(userValidators.deleteUser),
   userController.deleteUser
 );
+
 router.patch(
   "/:id",
   csrfProtection,
   authMiddleware,
   authorize("admin", "manager", "user"),
   adminLimiter,
+  validate(userValidators.updateUser),
   userController.UpdateUserDetails
 );
 

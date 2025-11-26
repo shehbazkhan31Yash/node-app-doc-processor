@@ -1,40 +1,38 @@
-/**
- * Simple global error handler that prefers err.status and maps common HTTP codes
- * to reasonable messages. Keeps response minimal in production while still
- * exposing helpful details in development.
- */
-
-// eslint-disable-next-line no-unused-vars
-function errorHandler(err, req, res , next) {
-   void next;
+function errorHandler(err, req, res, next) {
+  void next;
   const statusCode = err.status || 500;
 
   const response = {
-    message: err.message || 'Something went wrong',
-    error: err.type || err.name || 'Error',
+    message: err.message || "Something went wrong",
+    error: err.type || err.name || "Error",
   };
+
+  // Add validation error details if present
+  if (err.type === "ValidationError" && err.details) {
+    response.errors = err.details;
+  }
 
   switch (statusCode) {
     case 400:
-      response.message = err.message || 'Bad Request';
+      response.message = err.message || "Bad Request";
       break;
     case 401:
-      response.message = err.message || 'Unauthorized';
+      response.message = err.message || "Unauthorized";
       break;
     case 403:
-      response.message = err.message || 'Forbidden';
+      response.message = err.message || "Forbidden";
       break;
     case 404:
-      response.message = err.message || 'Not Found';
+      response.message = err.message || "Not Found";
       break;
     case 409:
-      response.message = err.message || 'Conflict';
+      response.message = err.message || "Conflict";
       break;
     case 422:
-      response.message = err.message || 'Unprocessable Entity';
+      response.message = err.message || "Unprocessable Entity";
       break;
     case 500:
-      response.message = err.message || 'Internal Server Error';
+      response.message = err.message || "Internal Server Error";
       break;
     default:
       response.message = err.message || response.message;

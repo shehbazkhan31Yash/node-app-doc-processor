@@ -5,59 +5,12 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 /**
  * Register a new user.
- *
- * Creates a new user record in the database. Expects the request body to contain:
- *   - userName (string): unique username for the user (required)
- *   - firstName (string): user's first name (required)
- *   - lastName (string): user's last name (required)
- *   - email (string): user's email, must be unique (required)
- *   - password (string): plain-text password (required) — this is hashed before saving
- *
- * Successful response:
- *   - 201: { message: 'User registered successfully' }
- *
- * Possible error responses:
- *   - 400: { message: 'All fields are required' } when any required field is missing
- *   - 400: { message: 'User already exists' } when a user with the same email already exists
- *   - 500: { message: '<error message>' } for unexpected server/database errors
- *
- * Notes:
- *  - The password provided in the request is hashed by the User model before it is saved.
- *  - The response intentionally does not return the user object or password for security reasons.
- *
- * @param {Object} req - Express request object. req.body contains input fields described above.
- * @param {Object} res - Express response object.
- * @returns {Promise<void>}
  */
-
 exports.register = async (req, res) => {
   try {
     const { userName, firstName, lastName, email, password, role } = req.body;
-
-    // required fields
-    if (!userName || !firstName || !lastName || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
-    }
-
-    // restrict client-selectable roles
     const allowedClientRoles = ["user", "manager"];
-
-    let assignedRole = "user";
-    if (role) {
-      if (!allowedClientRoles.includes(role)) {
-        // block 'admin' or any other invalid role from being self-assigned
-        return res
-          .status(403)
-          .json({ message: "Cannot assign this role during registration" });
-      }
-      assignedRole = role;
-    }
-
-    // ensure email/username uniqueness
-    const existingUser = await User.findOne({ $or: [{ email }, { userName }] });
-    if (existingUser) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+    const assignedRole = allowedClientRoles.includes(role) ? role : "user";
 
     const user = new User({
       userName,
@@ -70,8 +23,7 @@ exports.register = async (req, res) => {
 
     await user.save();
 
-    // return minimal user info (no password)
-    res.status(201).json({
+    return res.status(201).json({
       message: "User registered successfully",
       user: {
         id: user._id,
@@ -81,41 +33,29 @@ exports.register = async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    if (err && err.code === 11000) {
+      const dupField = Object.keys(err.keyValue || {}).join(", ");
+      return res.status(409).json({
+        message: dupField
+          ? `Duplicate value for: ${dupField}`
+          : "Duplicate key error",
+      });
+    }
+    console.error("register error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
+
 /**
  * Login a user.
- *
- * Authenticates a user and returns a JWT token for authorized requests.
- * Expects the request body to contain:
- *   - email (string): user's email (required)
- *   - password (string): plain-text password (required)
- *
- * Successful response:
- *   - 200: { token: '<jwt token>', user: <user object> }
- *
- * Possible error responses:
- *   - 400: { message: 'User not found' } when no user exists with the provided email
- *   - 400: { message: 'Invalid credentials' } when password does not match
- *   - 500: { message: '<error message>' } for unexpected server/database errors
- *
- * Notes:
- *  - The JWT payload contains { userId } and the token expiry is set to 1 day.
- *  - Keep JWT secret secure and set it via the JWT_SECRET environment variable in production.
- *
- * @param {Object} req - Express request object. req.body contains email and password.
- * @param {Object} res - Express response object.
- * @returns {Promise<void>}
  */
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
-
-    // explicitly include password field
-    const user = await User.findOne({ email }).select("+password");
+    const { email, userName, password } = req.body;
+    const findQuery = email ? { email } : { userName };
+    const user = await User.findOne(findQuery).select("+password");
     if (!user) {
-      return res.status(400).json({ message: "User not found" });
+      return res.status(400).json({ message: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -127,19 +67,26 @@ exports.login = async (req, res) => {
       expiresIn: "1h",
     });
 
-    res.json({ token, user });
+    const safeUser = user.toObject ? user.toObject() : { ...user };
+    delete safeUser.password;
+
+    return res.status(200).json({ token, user: safeUser });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    console.error("login error:", err);
+    return res.status(500).json({ message: "Server error" });
   }
 };
-// GET /users/managers?page=1&limit=20
+
+/**
+ * GET /users/managers?page=&limit=
+ */
 exports.getAllManagers = async (req, res, next) => {
   try {
     const page = Math.max(parseInt(req.query.page || "1", 10), 1);
     const limit = Math.min(
       Math.max(parseInt(req.query.limit || "20", 10), 1),
       200
-    ); // cap
+    );
     const skip = (page - 1) * limit;
 
     const filter = { role: "manager" };
@@ -172,6 +119,9 @@ exports.getAllManagers = async (req, res, next) => {
   }
 };
 
+/**
+ * GET /users -> employees (paginated)
+ */
 exports.getAllEmployees = async (req, res, next) => {
   try {
     const page = Math.max(parseInt(req.query.page || "1", 10), 1);
@@ -210,8 +160,10 @@ exports.getAllEmployees = async (req, res, next) => {
     next(err);
   }
 };
-// GET /users/all?page=1&limit=20
-// GET /users/all?page=1&limit=20
+
+/**
+ * GET /users/all -> all users (paginated)
+ */
 exports.getAllUsers = async (req, res, next) => {
   try {
     const page = Math.max(parseInt(req.query.page || "1", 10), 1);
@@ -250,9 +202,9 @@ exports.getAllUsers = async (req, res, next) => {
     next(err);
   }
 };
+
 /**
  * Delete a user by ID.
- * Only allow if requester is admin or the user themselves.
  */
 exports.deleteUser = async (req, res) => {
   try {
@@ -286,11 +238,14 @@ exports.deleteUser = async (req, res) => {
   }
 };
 
+/**
+ * Update user details.
+ */
 exports.UpdateUserDetails = async (req, res) => {
   try {
     const userIdToUpdate = req.params.id;
     const requester = req.user;
-    const updateFields = req.body;
+    const updateFields = req.body || {};
 
     if (!mongoose.Types.ObjectId.isValid(userIdToUpdate)) {
       return res.status(400).json({ message: "Invalid user ID" });
@@ -298,15 +253,12 @@ exports.UpdateUserDetails = async (req, res) => {
     if (!requester || !requester.id) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-
-    // Only admin or the user can patch their details
     if (requester.role !== "admin" && requester.id !== userIdToUpdate) {
       return res
         .status(403)
         .json({ message: "Forbidden: insufficient permissions" });
     }
 
-    // Filter allowed update fields for security
     const allowedUpdates = ["firstName", "lastName", "email", "userName"];
     const filteredUpdates = {};
     for (const key of Object.keys(updateFields)) {
@@ -321,7 +273,6 @@ exports.UpdateUserDetails = async (req, res) => {
         .json({ message: "No valid fields provided for update" });
     }
 
-    // Perform partial update, return updated user
     const updatedUser = await User.findByIdAndUpdate(
       userIdToUpdate,
       { $set: filteredUpdates },
@@ -344,6 +295,9 @@ exports.UpdateUserDetails = async (req, res) => {
   }
 };
 
+/**
+ * Get user by id.
+ */
 exports.getUserById = async (req, res) => {
   try {
     const requestedId = req.params.id;

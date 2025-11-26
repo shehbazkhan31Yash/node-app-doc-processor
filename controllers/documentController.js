@@ -1,17 +1,5 @@
 const Document = require("../models/Document");
 const mongoose = require("mongoose");
-/**
- * Create a new document (protected).
- *
- * Accepts multipart/form-data:
- *  - title (string) required
- *  - content (string) required
- *  - meta (JSON string) optional
- *  - attachments (file) optional, multiple allowed
- *
- * Files are stored inline in the Document.attachments array as Buffers.
- */
-// const escapeRegex = (s = "") => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 exports.createDocument = async (req, res) => {
   try {
@@ -20,19 +8,7 @@ exports.createDocument = async (req, res) => {
     }
 
     const { projectSite, department, equipment, projectId } = req.body;
-
-    if (!projectSite || !department || !equipment) {
-      return res.status(400).json({
-        message: "projectSite, department, and equipment are required",
-      });
-    }
-
     const files = req.files || [];
-    if (files.length === 0) {
-      return res
-        .status(400)
-        .json({ message: "At least one file attachment is required" });
-    }
 
     const attachments = files.map((f) => ({
       originalname: f.originalname,
@@ -74,9 +50,9 @@ exports.createDocument = async (req, res) => {
     res.status(status).json({ message: err.message || "Server error" });
   }
 };
+
 exports.getAllDocuments = async (req, res) => {
   try {
-    // Simple pagination (no sort param, no extra fields)
     const rawPage = req.query.page;
     const rawLimit = req.query.limit;
 
@@ -90,13 +66,13 @@ exports.getAllDocuments = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    const filter = {}; // keep it simple, no extra filters
+    const filter = {};
 
     const [total, documents] = await Promise.all([
       Document.countDocuments(filter),
       Document.find(filter)
-        .select("-attachments.data") // never return binary in list endpoints
-        .sort("-createdAt") // fixed sort: newest first
+        .select("-attachments.data")
+        .sort("-createdAt")
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -119,9 +95,6 @@ exports.getAllDocuments = async (req, res) => {
 exports.getDocumentByProjectID = async (req, res) => {
   try {
     const { projectId } = req.params;
-    if (!projectId)
-      return res.status(400).json({ message: "projectId is required" });
-
     const page = Math.max(parseInt(req.query.page || "1", 10), 1);
     const limit = Math.min(
       Math.max(parseInt(req.query.limit || "20", 10), 1),
@@ -130,9 +103,6 @@ exports.getDocumentByProjectID = async (req, res) => {
     const sort = req.query.sort || "-createdAt";
     const q = (req.query.q || "").trim();
 
-    if (!mongoose.Types.ObjectId.isValid(projectId)) {
-      return res.status(400).json({ message: "Invalid projectId" });
-    }
     const projectObjectId = new mongoose.Types.ObjectId(projectId);
 
     const filter = { projectId: projectObjectId };
@@ -145,10 +115,8 @@ exports.getDocumentByProjectID = async (req, res) => {
           indexes[key].key && Object.values(indexes[key].key).includes("text")
       );
       if (hasTextIndex) {
-        // Use text search only if text index exists (fast and efficient)
         filter.$text = { $search: q };
       } else {
-        // Fallback to regex search across relevant fields
         filter.$or = [
           { "attachments.originalname": { $regex: escaped, $options: "i" } },
           { projectSite: { $regex: escaped, $options: "i" } },
@@ -180,17 +148,10 @@ exports.getDocumentByProjectID = async (req, res) => {
   }
 };
 
-/**
- * Search documents by original name.
- */
 exports.searchDocuments = async (req, res) => {
   try {
     const q = (req.query.q || "").trim();
-    if (!q) {
-      return res.status(400).json({ message: "Search query (q) is required" });
-    }
 
-    // parse pagination from query (no middleware)
     const rawPage = req.query.page;
     const rawLimit = req.query.limit;
     let page = Number(rawPage === undefined ? 1 : Number(rawPage));
@@ -203,18 +164,14 @@ exports.searchDocuments = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    // First try $text search (you said you have a text index)
     try {
       const textFilter = { $text: { $search: q } };
 
       const [total, documents] = await Promise.all([
         Document.countDocuments(textFilter),
-        Document.find(
-          textFilter,
-          { score: { $meta: "textScore" } } // project text score
-        )
-          .select("-attachments.data") // don't return binary buffers in list endpoints
-          .sort({ score: { $meta: "textScore" }, createdAt: -1 }) // prefer relevance, then newest
+        Document.find(textFilter, { score: { $meta: "textScore" } })
+          .select("-attachments.data")
+          .sort({ score: { $meta: "textScore" }, createdAt: -1 })
           .skip(skip)
           .limit(limit)
           .lean(),
@@ -230,7 +187,6 @@ exports.searchDocuments = async (req, res) => {
         },
       });
     } catch (textErr) {
-      // Fallback to regex search if $text fails (e.g., index missing)
       if (
         textErr &&
         textErr.message &&
@@ -264,7 +220,6 @@ exports.searchDocuments = async (req, res) => {
         });
       }
 
-      // if it's some other error, rethrow to outer catch
       throw textErr;
     }
   } catch (err) {
@@ -272,9 +227,7 @@ exports.searchDocuments = async (req, res) => {
     return res.status(500).json({ message: err.message || "Server error" });
   }
 };
-/**
- * Delete a document (only creator can delete).
- */
+
 exports.deleteDocument = async (req, res) => {
   try {
     const currentUserId =
@@ -310,9 +263,6 @@ exports.deleteDocument = async (req, res) => {
   }
 };
 
-/**
- * Get all attachments for a specific document.
- */
 exports.getDocumentAttachments = async (req, res) => {
   try {
     const { id } = req.params;
@@ -335,47 +285,27 @@ exports.getDocumentAttachments = async (req, res) => {
   }
 };
 
-/**
- * View/download attachment by attachment ID.
- */
 exports.viewAttachment = async (req, res) => {
   try {
     const { id, attachmentId } = req.params;
-
-    // Find document by its ID explicitly
     const document = await Document.findById(id);
     if (!document) {
       return res.status(404).json({ message: "Document not found" });
     }
-
-    // Find specific attachment within the document
     const attachment = document.attachments.id(attachmentId);
     if (!attachment) {
       return res.status(404).json({ message: "Attachment not found" });
     }
-
-    // Set response headers to serve the attachment file
     res.set({
       "Content-Type": attachment.mimetype,
       "Content-Disposition": `inline; filename="${attachment.originalname}"`,
       "Content-Length": attachment.size,
     });
-
-    // Send the buffer data of the attachment
     res.send(attachment.data);
   } catch (err) {
     res.status(500).json({ message: err.message || "Server error" });
   }
 };
-
-/**
- * Delete an attachment (subdocument) from a document.
- * Route params: req.params.id (document id), req.params.attachmentId (attachment _id)
- * Permissions:
- *  - Admins can delete any attachment.
- *  - The manager who uploaded the document can delete attachments on that document.
- * Assumes authorize('manager','admin') middleware already ran and set req.user.id and req.user.role.
- */
 
 exports.deleteAttachment = async (req, res) => {
   try {
@@ -384,19 +314,12 @@ exports.deleteAttachment = async (req, res) => {
     }
 
     const { id: documentId, attachmentId } = req.params;
-    if (!attachmentId) {
-      return res.status(400).json({ message: "attachmentId is required" });
-    }
-
-    // load document with attachments and uploadedBy
     const doc = await Document.findById(documentId).select(
       "attachments uploadedBy"
     );
     if (!doc) {
       return res.status(404).json({ message: "Document not found" });
     }
-
-    // permission check (owner or admin)
     const isAdmin = req.user.role === "admin";
     const isOwner =
       doc.uploadedBy &&
@@ -411,22 +334,17 @@ exports.deleteAttachment = async (req, res) => {
       });
     }
 
-    // Find attachment
     const attachment = doc.attachments.id
       ? doc.attachments.id(attachmentId)
       : null;
 
     if (attachment && typeof attachment.remove === "function") {
-      // Mongoose subdocument: use remove()
       attachment.remove();
       await doc.save();
       return res.json({ message: "Attachment deleted successfully" });
     }
-
-    // Fallback: attachments is plain array / plain objects — remove by filtering
     const beforeCount = doc.attachments.length;
     doc.attachments = doc.attachments.filter((a) => {
-      // a._id might be ObjectId or string
       const aId = a && a._id ? a._id.toString() : undefined;
       return aId !== String(attachmentId);
     });
@@ -434,9 +352,6 @@ exports.deleteAttachment = async (req, res) => {
     if (doc.attachments.length === beforeCount) {
       return res.status(404).json({ message: "Attachment not found" });
     }
-
-    // If doc is a Mongoose Document this will work; if it's a plain object (unlikely here),
-    // you would need to update via Model.updateOne. But with findById above we have a Mongoose doc.
     await doc.save();
 
     return res.json({ message: "Attachment deleted successfully" });

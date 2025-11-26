@@ -9,7 +9,6 @@ const composeLimiters = (middlewares) => {
       if (!mw) return next();
       mw(req, res, (err) => {
         if (err) return next(err);
-        // if limiter already sent a response (429), stop
         if (res.headersSent) return;
         runNext();
       });

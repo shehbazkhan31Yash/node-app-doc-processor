@@ -1,4 +1,3 @@
-const mongoose = require("mongoose");
 const Project = require("../models/Project");
 const User = require("../models/Users");
 
@@ -15,7 +14,7 @@ exports.createProject = async (req, res) => {
     } = req.body;
 
     const requesterId = req.user?.id;
-    if (!requesterId || !mongoose.Types.ObjectId.isValid(requesterId)) {
+    if (!requesterId) {
       return res.status(401).json({ message: "Unauthorized or invalid user" });
     }
 
@@ -57,14 +56,12 @@ exports.createProject = async (req, res) => {
 exports.deleteProject = async (req, res) => {
   try {
     const projectId = req.params.id;
-
-    // req.user and role should be set by auth + authorize middleware.
     const requesterId = req.user?.id;
-    if (!requesterId || !mongoose.Types.ObjectId.isValid(requesterId)) {
+
+    if (!requesterId) {
       return res.status(401).json({ message: "Unauthorized or invalid user" });
     }
 
-    // Optionally double-check role here (authorize middleware should already enforce)
     if (req.user?.role && req.user.role !== "admin") {
       return res
         .status(403)
@@ -77,8 +74,6 @@ exports.deleteProject = async (req, res) => {
     }
 
     await Project.findByIdAndDelete(projectId).exec();
-
-    // 204 No Content is appropriate for successful delete with no body
     return res.status(200).json({ message: "Project deleted successfully" });
   } catch (err) {
     if (err.name === "CastError") {
@@ -90,14 +85,13 @@ exports.deleteProject = async (req, res) => {
 
 exports.getAllProjects = async (req, res) => {
   try {
-    // enforce admin role (authorize middleware should normally handle this, extra safety)
     if (!req.user?.role || req.user.role !== "admin") {
       return res
         .status(403)
         .json({ message: "Forbidden: admin role required" });
     }
 
-    // parse pagination from query
+    // Pagination params expected validated outside controller
     const rawPage = req.query.page;
     const rawLimit = req.query.limit;
     let page = Number(rawPage === undefined ? 1 : Number(rawPage));
@@ -110,9 +104,8 @@ exports.getAllProjects = async (req, res) => {
 
     const skip = (page - 1) * limit;
 
-    const filter = {}; // add filters here later if needed (status, manager, date range...)
+    const filter = {}; // Placeholder for future filters
 
-    // run count + find in parallel
     const [total, projects] = await Promise.all([
       Project.countDocuments(filter),
       Project.find(filter)
@@ -149,7 +142,6 @@ exports.updateProject = async (req, res) => {
     const projectId = req.params.id;
     const requesterId = req.user?.id;
 
-    // Auth and role checks
     if (!requesterId) {
       return res.status(401).json({ message: "Unauthorized or invalid user" });
     }
@@ -159,19 +151,16 @@ exports.updateProject = async (req, res) => {
         .json({ message: "Forbidden: admin role required" });
     }
 
-    // Ensure requester exists
     const requesterExists = await User.findById(requesterId).lean();
     if (!requesterExists) {
       return res.status(401).json({ message: "User not found" });
     }
 
-    // Ensure project exists
     const project = await Project.findById(projectId).exec();
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    // Extract validated and sanitized input (express-validator should ensure this)
     const {
       name,
       projectManager,
@@ -182,7 +171,6 @@ exports.updateProject = async (req, res) => {
       status,
     } = req.body;
 
-    // Date validation & ordering logic
     const newStartDate = startDate ? new Date(startDate) : project.startDate;
     const newEndDate = endDate ? new Date(endDate) : project.endDate;
     if (newStartDate && newEndDate && newStartDate > newEndDate) {
@@ -191,7 +179,6 @@ exports.updateProject = async (req, res) => {
         .json({ message: "startDate must be before or equal to endDate" });
     }
 
-    // Apply updates
     if (name !== undefined) project.name = name.trim();
     if (projectManager !== undefined) project.projectManager = projectManager;
     if (members !== undefined) project.members = members;
@@ -223,20 +210,11 @@ exports.assignUserToProject = async (req, res) => {
     const projectId = req.params.projectId;
     const { userId } = req.body;
 
-    if (
-      !mongoose.Types.ObjectId.isValid(projectId) ||
-      !mongoose.Types.ObjectId.isValid(userId)
-    ) {
-      return res.status(400).json({ message: "Invalid projectId or userId" });
-    }
-
-    // Check if project exists
     const project = await Project.findById(projectId).exec();
     if (!project) {
       return res.status(404).json({ message: "Project not found" });
     }
 
-    // Check if user exists and has role 'user'
     const user = await User.findOne({ _id: userId, role: "user" }).exec();
     if (!user) {
       return res
@@ -244,7 +222,6 @@ exports.assignUserToProject = async (req, res) => {
         .json({ message: "User not found or not a valid user role" });
     }
 
-    // Add user to project members array without duplicates
     const updatedProject = await Project.findByIdAndUpdate(
       projectId,
       { $addToSet: { members: userId } },
@@ -259,6 +236,65 @@ exports.assignUserToProject = async (req, res) => {
       .json({ message: "User assigned successfully", project: updatedProject });
   } catch (err) {
     console.error("assignUserToProject error:", err);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getProjectsByUserId = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const requesterId = req.user?.id;
+
+    if (!requesterId) {
+      return res.status(401).json({ message: "Unauthorized or invalid user" });
+    }
+    const userExists = await User.findById(userId).lean();
+    if (!userExists) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    const rawPage = req.query.page;
+    const rawLimit = req.query.limit;
+    let page = Number(rawPage === undefined ? 1 : Number(rawPage));
+    if (!Number.isFinite(page) || page < 1) page = 1;
+
+    let limit = Number(rawLimit === undefined ? 20 : Number(rawLimit));
+    if (!Number.isFinite(limit) || limit < 1) limit = 20;
+    const MAX_LIMIT = 200;
+    if (limit > MAX_LIMIT) limit = MAX_LIMIT;
+
+    const skip = (page - 1) * limit;
+
+    const filter = {
+      $or: [{ projectManager: userId }, { members: userId }],
+    };
+
+    const [total, projects] = await Promise.all([
+      Project.countDocuments(filter),
+      Project.find(filter)
+        .select(
+          "name projectManager members startDate endDate status createdBy createdAt updatedAt"
+        )
+        .populate("projectManager", "firstName lastName email userName")
+        .populate("members", "firstName lastName email userName")
+        .sort("-createdAt")
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      count: projects.length,
+      data: projects,
+      meta: {
+        total,
+        page,
+        limit,
+        pages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
+  } catch (err) {
+    console.error("getProjectsByUserId error:", err);
     return res.status(500).json({ message: "Server error" });
   }
 };
