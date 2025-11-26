@@ -15,6 +15,8 @@ const {
   publicApiLimiter,
   adminLimiter,
 } = require("../middlewares/rateLimiter");
+const documentValidators = require("../validators/documentValidators");
+const validate = require("../middlewares/validation");
 // const pagination = require("../middlewares/pagination");
 
 /**
@@ -54,6 +56,7 @@ router.get(
   authMiddleware,
   authorize("manager", "admin", "user"),
   publicApiLimiter,
+  validate(documentValidators.searchDocuments),
   documentController.searchDocuments
 );
 
@@ -70,6 +73,7 @@ router.get(
   authMiddleware,
   authorize("manager", "admin", "user"),
   publicApiLimiter,
+  validate(documentValidators.getDocumentByProjectID),
   documentController.getDocumentByProjectID
 );
 
@@ -78,6 +82,7 @@ router.get(
   authMiddleware,
   authorize("manager", "admin", "user"),
   publicApiLimiter,
+  validate(documentValidators.validateDocumentId),
   documentController.getDocumentAttachments
 );
 
@@ -86,6 +91,8 @@ router.get(
   authMiddleware,
   authorize("manager", "admin", "user"),
   publicApiLimiter,
+  validate(documentValidators.validateDocumentId),
+  validate(documentValidators.validateAttachmentId),
   documentController.viewAttachment
 );
 router.delete(
@@ -94,6 +101,8 @@ router.delete(
   authMiddleware,
   authorize("manager", "admin"),
   adminLimiter,
+  validate(documentValidators.validateDocumentId),
+  validate(documentValidators.validateAttachmentId),
   documentController.deleteDocument
 );
 
@@ -103,6 +112,8 @@ router.delete(
   authMiddleware,
   authorize("manager", "admin"),
   adminLimiter,
+  validate(documentValidators.validateDocumentId),
+  validate(documentValidators.validateAttachmentId),
   documentController.deleteAttachment
 );
 /**
@@ -149,6 +160,7 @@ router.post(
   authorize("manager", "admin"),
   adminLimiter,
   upload.array("attachments", 5),
+  validate(documentValidators.createDocument),
   documentController.createDocument
 );
 
